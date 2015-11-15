@@ -15,6 +15,25 @@ func marshalUint(val reflect.Value) []byte {
 	return []byte(s)
 }
 
+func marshalArray(val reflect.Value) ([]byte, error) {
+	result := []byte{'['}
+	for i := 0; i < val.Len(); i++ {
+		res, err := Marshal(val.Index(i).Interface())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, res...)
+		result = append(result, ',')
+	}
+	if val.Len() > 0 {
+		result[len(result)-1] = ']'
+	} else {
+		result = append(result, ']')
+	}
+
+	return result, nil
+}
+
 func Marshal(input interface{}) (result []byte, err error) {
 	inputType := reflect.TypeOf(input)
 	switch inputType.Kind() {
@@ -39,11 +58,20 @@ func Marshal(input interface{}) (result []byte, err error) {
 		fallthrough
 	case reflect.Uint64:
 		result = append(result, marshalUint(reflect.ValueOf(input))...)
+
+	case reflect.Array:
+		fallthrough
+	case reflect.Slice:
+		res, e := marshalArray(reflect.ValueOf(input))
+		if e != nil {
+			err = e
+			return
+		}
+		result = append(result, res...)
 	}
 
 	return
 }
 
 func main() {
-
 }
