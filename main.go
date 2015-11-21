@@ -34,6 +34,40 @@ func marshalArray(val reflect.Value) ([]byte, error) {
 	return result, nil
 }
 
+func marshalStruct(val reflect.Value) ([]byte, error) {
+	result := []byte{'{'}
+	inputType := val.Type()
+	exportedFields := 0
+	for i := 0; i < inputType.NumField(); i++ {
+		field := inputType.Field(i)
+		if field.PkgPath == "" {
+			// This is an exported field
+			tag := field.Tag.Get("json")
+			fieldName := field.Name
+			if tag != "" {
+				fieldName = tag
+			}
+			result = append(result, []byte(fieldName)...)
+			result = append(result, ':')
+			res, err := Marshal(val.Field(i).Interface())
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, res...)
+			result = append(result, ',')
+			exportedFields += 1
+		}
+	}
+
+	if exportedFields > 0 {
+		result[len(result)-1] = '}'
+	} else {
+		result = append(result, '}')
+	}
+
+	return result, nil
+}
+
 func Marshal(input interface{}) (result []byte, err error) {
 	inputType := reflect.TypeOf(input)
 	switch inputType.Kind() {
@@ -63,6 +97,14 @@ func Marshal(input interface{}) (result []byte, err error) {
 		fallthrough
 	case reflect.Slice:
 		res, e := marshalArray(reflect.ValueOf(input))
+		if e != nil {
+			err = e
+			return
+		}
+		result = append(result, res...)
+
+	case reflect.Struct:
+		res, e := marshalStruct(reflect.ValueOf(input))
 		if e != nil {
 			err = e
 			return
